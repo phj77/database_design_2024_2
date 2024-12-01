@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Manager</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Book Manager</h1>
+
+    <!-- Search.html로 이동하는 버튼 -->
+    <button onclick="location.href='/search'">Go to Search Books</button>
+
+    <!-- 도서 추가 -->
+    <h2>Add Book</h2>
+    <form id="addBookForm">
+        <label for="name">Book Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="genre_ID">Genre ID:</label>
+        <input type="text" id="genre_ID" name="genre_ID" required>
+
+        <label for="author_ID">Author ID:</label>
+        <input type="text" id="author_ID" name="author_ID" required>
+
+        <button type="submit">Add Book</button>
+    </form>
+    <div id="addBookMessage" class="success"></div>
+
+    <!-- 도서 삭제 -->
+    <h2>Delete Book</h2>
+    <form id="deleteBookForm">
+        <label for="bookID">Book ID to Delete:</label>
+        <input type="text" id="bookID" name="bookID" required>
+
+        <button type="submit">Delete Book</button>
+    </form>
+    <div id="deleteBookMessage" class="error"></div>
+
+    <script>
+        // 도서 추가
+        $("#addBookForm").on("submit", function (e) {
+            e.preventDefault(); // 기본 폼 제출 방지
+
+            const formData = $(this).serialize();
+
+            $.ajax({
+                url: "/manage_books/?action=add",
+                type: "POST",
+                data: formData,
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}" // CSRF 토큰 추가
+                },
+                success: function (response) {
+                    $("#addBookMessage").text(response.message).addClass("success").removeClass("error");
+                },
+                error: function (xhr) {
+                    const error = JSON.parse(xhr.responseText);
+                    $("#addBookMessage").text(error.error || "An error occurred.").addClass("error").removeClass("success");
+                }
+            });
+        });
+
+        // 도서 삭제
+        $("#deleteBookForm").on("submit", function (e) {
+            e.preventDefault(); // 기본 폼 제출 방지
+
+            const bookID = $("#bookID").val();
+
+            $.ajax({
+                url: `/manage_books/?action=delete&bookID=${bookID}`,
+                type: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}" // CSRF 토큰 추가
+                },
+                success: function (response) {
+                    $("#deleteBookMessage").text(response.message).addClass("success").removeClass("error");
+                },
+                error: function (xhr) {
+                    const error = JSON.parse(xhr.responseText);
+                    $("#deleteBookMessage").text(error.error || "An error occurred.").addClass("error").removeClass("success");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

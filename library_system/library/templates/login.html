@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: auto;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login</h1>
+        <!-- 로그인 폼 -->
+        <form method="POST" action="{% url 'login' %}">
+            {% csrf_token %}
+            <label for="UserID">User ID:</label>
+            <input type="text" id="UserID" name="UserID" required>
+
+            <label for="PW">Password:</label>
+            <input type="password" id="PW" name="PW" required>
+
+            <button type="submit">Login</button>
+        </form>
+
+        <h1>Register</h1>
+        <!-- 회원가입 폼 -->
+        <form id="registerForm">
+            {% csrf_token %}
+            <label for="UserID">User ID:</label>
+            <input type="text" id="registerUserID" name="UserID" required>
+
+            <label for="PW">Password:</label>
+            <input type="password" id="registerPW" name="PW" required>
+
+            <label for="name">Name:</label>
+            <input type="text" id="registerName" name="name" required>
+
+            <label for="gender">Gender:</label>
+            <select id="registerGender" name="gender" required>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+            </select>
+
+            <label for="type">Type:</label>
+            <select id="registerType" name="type" required>
+                <option value="member">Member</option>
+                <option value="manager">Manager</option>
+            </select>
+
+            <button type="submit">Register</button>
+        </form>
+
+        <!-- 메시지 표시 -->
+        <div id="registerMessage" class="success"></div>
+        <div id="registerError" class="error"></div>
+    </div>
+
+    <script>
+        // 회원가입 AJAX 요청
+        $("#registerForm").on("submit", function (e) {
+            e.preventDefault(); // 기본 폼 제출 방지
+
+            const formData = {
+                csrfmiddlewaretoken: "{{ csrf_token }}",
+                UserID: $("#registerUserID").val(),
+                PW: $("#registerPW").val(),
+                name: $("#registerName").val(),
+                gender: $("#registerGender").val(),
+                type: $("#registerType").val(),
+            };
+
+            $.ajax({
+                url: "{% url 'register' %}",
+                type: "POST",
+                data: formData,
+                success: function (response) {
+                    $("#registerMessage").text(response.success).show();
+                    $("#registerError").text("").hide();
+                },
+                error: function (xhr) {
+                    const error = JSON.parse(xhr.responseText);
+                    $("#registerError").text(error.error).show();
+                    $("#registerMessage").text("").hide();
+                },
+            });
+        });
+    </script>
+</body>
+</html>

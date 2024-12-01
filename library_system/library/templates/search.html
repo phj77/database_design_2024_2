@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Books</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .details {
+            display: none;
+            margin-top: 20px;
+        }
+        #userInfo {
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Search Books</h1>
+    <!-- 로그아웃 버튼 -->
+    <button onclick="location.href='/logout/'">Logout</button>
+    <!-- Manager.html로 이동하는 버튼 -->
+    <button onclick="location.href='/manager'">Go to Book Manager</button>
+
+    <!-- 사용자 정보 -->
+    <div id="userInfo">
+        <!-- 사용자 정보 로드 -->
+         
+    </div>
+
+    <!-- 검색 폼 -->
+    <form id="searchForm">
+        <input type="text" name="query" id="query" placeholder="Search by book name...">
+        <input type="text" name="author" id="author" placeholder="Search by author name...">
+        <button type="submit">Search</button>
+    </form>
+    <div id="error" class="error"></div>
+
+    <!-- 검색 결과 -->
+    <table id="resultsTable" style="display: none;">
+        <thead>
+            <tr>
+                <th>Book ID</th>
+                <th>Name</th>
+                <th>Author</th>
+                <th>Genre</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+
+    <!-- 자세한 정보 -->
+    <div class="details" id="bookDetails">
+        <h2>Book Details</h2>
+        <p id="bookInfo"></p>
+        <p id="isBorrowed"></p>
+        <button id="borrowButton" style="display: none;">Borrow Book</button>
+
+        <h3>Comments</h3>
+        <div id="comments"></div>
+        <form id="commentForm" style="display: none;">
+            <textarea id="newComment" placeholder="Leave a comment..."></textarea>
+            <button type="submit">Submit Comment</button>
+        </form>
+    </div>
+
+    <script>
+        // 사용자 정보 로드
+            function loadUserInfo() {
+                $.ajax({
+                    url: "/user_info/",
+                    type: "GET",
+                    success: function (response) {
+                        const loanHistoryHtml = response.loan_history
+                            .map((loan) => `<li>${loan.book} (Borrowed on: ${loan.when_borrowed})</li>`)
+                            .join("");
+                        const currentLoansHtml = response.current_loans
+                            .map((loan) => `<li>${loan.book}</li>`)
+                            .join("");
+
+                        const userInfoHtml = `
+                            <p><b>User ID:</b> ${response.UserID}</p>
+                            <p><b>Name:</b> ${response.name}</p>
+                            <p><b>Loan History:</b></p>
+                            <ul>${loanHistoryHtml || "<li>No loan history</li>"}</ul>
+                            <p><b>Currently Borrowed:</b></p>
+                            <ul>${currentLoansHtml || "<li>No currently borrowed books</li>"}</ul>
+                        `;
+                        $("#userInfo").html(userInfoHtml);
+                    },
+                    error: function () {
+                        $("#userInfo").text("Failed to load user info.");
+                    }
+                });
+            }
+
+
+        // 검색 폼 제출 처리
+        $("#searchForm").on("submit", function (e) {
+            e.preventDefault();
+
+            const query = $("#query").val();
+            const author = $("#author").val();
+
+            if (!query && !author) {
+                $("#error").text("Please enter a search query or author name.");
+                return;
+            }
+
+            $.ajax({
+                url: "/manage_books/",
+                type: "GET",
+                data: {
+                    action: "get",
+                    q: query,
+                    author: author
+                },
+                success: function (response) {
+                    $("#error").text("");
+                    $("#resultsTable").show();
+                    const resultsBody = $("#resultsBody");
+                    resultsBody.empty();
+
+                    response.books.forEach((book) => {
+                        resultsBody.append(`
+                            <tr>
+                                <td>${book.bookID}</td>
+                                <td>${book.name}</td>
+                                <td>${book.author_ID__name}</td>
+                                <td>${book.genre_ID__name}</td>
+                                <td><button class="detailsButton" data-bookid="${book.bookID}">View Details</button></td>
+                            </tr>
+                        `);
+                    });
+                },
+                error: function (xhr) {
+                    const error = JSON.parse(xhr.responseText);
+                    $("#error").text(error.message || "An error occurred.");
+                    $("#resultsTable").hide();
+                }
+            });
+        });
+
+        // "View Details" 버튼 클릭 처리
+        $(document).on("click", ".detailsButton", function () {
+            const bookID = $(this).data("bookid");
+
+            $.ajax({
+                url: `/book_details/${bookID}/`,
+                type: "GET",
+                success: function (response) {
+                    $("#bookInfo").text(`Book: ${response.name}, Author: ${response.author}, Genre: ${response.genre}`);
+                    $("#isBorrowed").text(`Borrowed: ${response.is_borrowed ? "Yes" : "No"}`);
+                    $("#bookDetails").show();
+
+                    if (!response.is_borrowed) {
+                        $("#borrowButton").show().off("click").on("click", function () {
+                            $.ajax({
+                                url: `/borrow_book/${bookID}/`,
+                                type: "POST",
+                                headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                                success: function () {
+                                    alert("Book borrowed successfully!");
+                                    $("#isBorrowed").text("Borrowed: Yes");
+                                    $("#borrowButton").hide();
+                                },
+                                error: function () {
+                                    alert("Failed to borrow the book.");
+                                }
+                            });
+                        });
+                    }
+
+                    let commentsHtml = "";
+                    response.comments.forEach((comment) => {
+                        commentsHtml += `<p>${comment}</p>`;
+                    });
+                    $("#comments").html(commentsHtml);
+
+                    if (response.can_comment) {
+                        $("#commentForm").show().off("submit").on("submit", function (e) {
+                            e.preventDefault();
+                            const newComment = $("#newComment").val();
+                            if (newComment) {
+                                $.ajax({
+                                    url: `/add_comment/${bookID}/`,
+                                    type: "POST",
+                                    headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                                    data: { comment: newComment },
+                                    success: function () {
+                                        $("#comments").append(`<p>${newComment}</p>`);
+                                        $("#newComment").val("");
+                                    },
+                                    error: function () {
+                                        alert("Failed to add comment.");
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        $("#commentForm").hide();
+                    }
+                },
+                error: function () {
+                    alert("Failed to load book details.");
+                }
+            });
+        });
+
+        // 초기 사용자 정보 로드
+        $(document).ready(function () {
+            loadUserInfo();
+        });
+    </script>
+</body>
+</html>
